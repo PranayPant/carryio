@@ -13,7 +13,7 @@ class Summoner:
     '''
     def __init__( self, name ):
 
-        self.name = name
+        self.summonerName = name
 
         self.game_types = []
         self.ranks = []
@@ -25,6 +25,9 @@ class Summoner:
     def __getitem__( self, key ):
         return self.__dict__[ key ]
 
+    def __setitem__( self, key, value ):
+        self.__dict__[ key ] = value
+
     def __str__( self ):
 
         json_str =  json.dumps( self.__dict__, indent=3 )
@@ -35,12 +38,12 @@ class Summoner:
 
     def filter( self, mode=GameMode.SOLO ):
         '''
-        Only include stats from mode that are >= stat_value
+        Only include stats from mode that are from this game mode
         Note: stats are not a list, but singular value
         '''
         try:
-            filtered_stats = { label: stats[ mode.value ] for label, stats in self.__dict__.items() if label != 'name' }
-            obj = { 'name': self.name }
+            fs = { label: stats[ mode.value ] for label, stats in self.__dict__.items() if label != 'summonerName' }
+            obj = { 'summonerName': self.summonerName }
             obj.update( filtered_stats )
             
             return Summoner.from_json( obj )
@@ -50,7 +53,11 @@ class Summoner:
 
     def set( self, key, value ):
 
-        self.__dict__[ key ] = value
+        self.__setitem__( key, value )
+
+    def update( self, fields ):
+
+        self.__dict__.update( fields )
 
     def set_from_tup( self, stats ):
         '''
@@ -72,16 +79,26 @@ class Summoner:
             self.games_played.append( win_num + loss_num )
 
     @classmethod
+    def list_filter( cls, summoners, tfield, tvalue ):
+        filtered_summs = [ summ for summ in summoners if summ[ tfield ] >= tvalue ]
+        return filtered_summs
+
+    @classmethod
+    def list_json( cls, summoners ):
+        jsons = [ s.to_json() for s in summoners ]
+        return jsons
+
+    @classmethod
     def from_json( cls, obj ):
 
-        summ = Summoner( obj['name'] )
+        summ = Summoner( obj.get('summonerName') )
         for k,v in obj.items():
             summ.set( k, v )
 
         return summ
 
     @classmethod
-    def sort( cls, summoners, key, inc=True ):
+    def sort( cls, summoners, key, inc=False ):
         '''
         Implement quicksort on a list of Summoners
         Sort by key
