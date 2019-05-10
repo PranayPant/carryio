@@ -23,8 +23,7 @@ for page in range( 1, 100 ):
 end = time.process_time()
 print( f'Gathering players took {str(end-start)}s' )
 '''
-f = open( 'players.txt', 'w+' )
+f = open( './data/players.txt', 'w+' )
 f.writelines( "%s\n" % player for player in players )
 f.close()
 '''
-
