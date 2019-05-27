@@ -1,7 +1,7 @@
 
 import requests, json, sys, math
 
-API_KEY = "RGAPI-d2d0424d-44ef-4da5-ba30-468ba95214a5"
+API_KEY = "RGAPI-8f088abd-3e3a-494c-8482-8298339ab5b4"
 HEADERS = {
     "Origin": "https://developer.riotgames.com",
     "Accept-Charset": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -18,28 +18,33 @@ def get_account_id( name ):
 
     return data['accountId']
 
-def get_match_metas( account_id, limit=50 ):
+def get_match_metas( account_id, limit=30 ):
      URL = f"https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/{account_id}?endIndex={limit}"
      data = requests.get( URL, headers=HEADERS ).json()
 
      return data['matches']
 
 def get_match_performance( match_id ):
+    '''
+    Game ID: 3046755822
+    '''
 
     URL = f"https://na1.api.riotgames.com/lol/match/v4/matches/{match_id}"
     data = requests.get( URL, headers=HEADERS ).json()
 
     try:
-        players = list( filter( lambda p: p['timeline'].get('xpPerMinDeltas') != None, data['participants'] ) )
-        
+        players    = list( filter( lambda p: p['timeline'].get('xpPerMinDeltas') != None, data['participants'] ) )
+        identities = { p['participantId']:p['player']['summonerName'] for p in data['participantIdentities'] }
+
     except Exception as err:
         print(json.dumps(data))
         sys.exit(1)
 
-    return players
+    return players, identities
 
-def extract_infos( players ):
+def extract_infos( players, idens ):
     ret_obj = {}
+    names = []
     try:
         dmg_dealts = [ int(p['stats']['totalDamageDealtToChampions']) for p in players ]
         dmg_takens = [ int(p['stats']['totalDamageTaken']) for p in players ]
@@ -52,6 +57,7 @@ def extract_infos( players ):
         exp_gained = [ sum( [ int(delt) * 10 for delt in p['timeline']['xpPerMinDeltas'].values() ] ) for p in players ]
 
         ret_obj = { 'dd': dmg_dealts, 'dt': dmg_takens, 'kdr': kdrs, 'od': objec_dmgs, 'gs': gold_spent, 'eg': exp_gained }
+        names   = [ idens[p['participantId']] for p in players ]
 
     except Exception as err:
         print(f'Caught {err}')
@@ -60,9 +66,9 @@ def extract_infos( players ):
             fh.write( json.dumps(players, indent=3) )
             sys.exit(1)
 
-    return ret_obj
+    return ret_obj, names
 
-def scores( infos ):
+def scores( infos, names ):
 
     score    = lambda impact, pressure: 0.5 * impact + 0.5 * pressure
     impact   = lambda dd, dt, kdr, od: (od + dd + dt) * kdr
@@ -77,6 +83,6 @@ def scores( infos ):
     score_args = zip( impacts, pressures )
     scores     = [ score( *arg ) for arg in score_args ]
 
-    scores_norm = [ round( s*100/math.fsum( scores ), 2 ) for s in scores ]
+    scores_norm = { n:round( s*100/math.fsum( scores ), 2 ) for n, s in zip( names, scores ) }
 
     return scores_norm
